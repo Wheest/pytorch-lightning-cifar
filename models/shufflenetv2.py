@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class ShuffleBlock(nn.Module):
@@ -111,10 +113,10 @@ class DownBlock(nn.Module):
 
 
 class ShuffleNetV2(pl.LightningModule):
-    def __init__(self, net_size, learning_rate=0.1):
+    def __init__(self, net_size, lr=0.05):
         super(ShuffleNetV2, self).__init__()
 
-        self.learning_rate = learning_rate
+        self.save_hyperparameters()
 
         out_channels = configs[net_size]["out_channels"]
         num_blocks = configs[net_size]["num_blocks"]
@@ -162,7 +164,40 @@ class ShuffleNetV2(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
 configs = {
@@ -173,20 +208,20 @@ configs = {
 }
 
 
-def ShuffleNetV2_0_5():
-    return ShuffleNetV2(net_size=0.5)
+def ShuffleNetV2_0_5(lr=0.05):
+    return ShuffleNetV2(net_size=0.5, lr=lr)
 
 
-def ShuffleNetV2_1_0():
-    return ShuffleNetV2(net_size=1)
+def ShuffleNetV2_1_0(lr=0.05):
+    return ShuffleNetV2(net_size=1, lr=lr)
 
 
-def ShuffleNetV2_1_5():
-    return ShuffleNetV2(net_size=1.5)
+def ShuffleNetV2_1_5(lr=0.05):
+    return ShuffleNetV2(net_size=1.5, lr=lr)
 
 
-def ShuffleNetV2_2_0():
-    return ShuffleNetV2(net_size=2)
+def ShuffleNetV2_2_0(lr=0.05):
+    return ShuffleNetV2(net_size=2, lr=lr)
 
 
 def test():

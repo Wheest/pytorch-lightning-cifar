@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class SE(nn.Module):
@@ -73,9 +75,9 @@ class Block(nn.Module):
 
 
 class RegNet(pl.LightningModule):
-    def __init__(self, cfg, num_classes=10, learning_rate=0.1):
+    def __init__(self, cfg, num_classes=10, lr=0.05):
         super(RegNet, self).__init__()
-        self.learning_rate = learning_rate
+        self.save_hyperparameters()
         self.cfg = cfg
         self.in_planes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -121,10 +123,43 @@ class RegNet(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
-def RegNetX_200MF():
+def RegNetX_200MF(lr=0.05):
     cfg = {
         "depths": [1, 1, 4, 7],
         "widths": [24, 56, 152, 368],
@@ -133,10 +168,10 @@ def RegNetX_200MF():
         "bottleneck_ratio": 1,
         "se_ratio": 0,
     }
-    return RegNet(cfg)
+    return RegNet(cfg, lr=lr)
 
 
-def RegNetX_400MF():
+def RegNetX_400MF(lr=0.05):
     cfg = {
         "depths": [1, 2, 7, 12],
         "widths": [32, 64, 160, 384],
@@ -145,10 +180,10 @@ def RegNetX_400MF():
         "bottleneck_ratio": 1,
         "se_ratio": 0,
     }
-    return RegNet(cfg)
+    return RegNet(cfg, lr=lr)
 
 
-def RegNetY_400MF():
+def RegNetY_400MF(lr=0.05):
     cfg = {
         "depths": [1, 2, 7, 12],
         "widths": [32, 64, 160, 384],
@@ -157,7 +192,7 @@ def RegNetY_400MF():
         "bottleneck_ratio": 1,
         "se_ratio": 0.25,
     }
-    return RegNet(cfg)
+    return RegNet(cfg, lr=lr)
 
 
 def test():

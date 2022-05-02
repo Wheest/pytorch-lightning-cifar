@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class Block(nn.Module):
@@ -62,10 +64,10 @@ class ResNeXt(pl.LightningModule):
         cardinality,
         bottleneck_width,
         num_classes=10,
-        learning_rate=0.1,
+        lr=0.05,
     ):
         super(ResNeXt, self).__init__()
-        self.learning_rate = learning_rate
+        self.save_hyperparameters()
 
         self.cardinality = cardinality
         self.bottleneck_width = bottleneck_width
@@ -109,23 +111,56 @@ class ResNeXt(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
-def ResNeXt29_2x64d():
-    return ResNeXt(num_blocks=[3, 3, 3], cardinality=2, bottleneck_width=64)
+def ResNeXt29_2x64d(lr=0.05):
+    return ResNeXt(num_blocks=[3, 3, 3], cardinality=2, bottleneck_width=64, lr=lr)
 
 
-def ResNeXt29_4x64d():
-    return ResNeXt(num_blocks=[3, 3, 3], cardinality=4, bottleneck_width=64)
+def ResNeXt29_4x64d(lr=0.05):
+    return ResNeXt(num_blocks=[3, 3, 3], cardinality=4, bottleneck_width=64, lr=lr)
 
 
-def ResNeXt29_8x64d():
-    return ResNeXt(num_blocks=[3, 3, 3], cardinality=8, bottleneck_width=64)
+def ResNeXt29_8x64d(lr=0.05):
+    return ResNeXt(num_blocks=[3, 3, 3], cardinality=8, bottleneck_width=64, lr=lr)
 
 
-def ResNeXt29_32x4d():
-    return ResNeXt(num_blocks=[3, 3, 3], cardinality=32, bottleneck_width=4)
+def ResNeXt29_32x4d(lr=0.05):
+    return ResNeXt(num_blocks=[3, 3, 3], cardinality=32, bottleneck_width=4, lr=lr)
 
 
 def test_resnext():

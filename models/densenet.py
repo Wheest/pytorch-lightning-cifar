@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class Bottleneck(nn.Module):
@@ -44,11 +46,11 @@ class DenseNet(pl.LightningModule):
         growth_rate=12,
         reduction=0.5,
         num_classes=10,
-        learning_rate=0.1,
+        lr=0.05,
     ):
         super(DenseNet, self).__init__()
+        self.save_hyperparameters()
         self.growth_rate = growth_rate
-        self.learning_rate = learning_rate
 
         num_planes = 2 * growth_rate
         self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, padding=1, bias=False)
@@ -102,27 +104,60 @@ class DenseNet(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
-def DenseNet121():
-    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=32)
+def DenseNet121(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=32, lr=lr)
 
 
-def DenseNet169():
-    return DenseNet(Bottleneck, [6, 12, 32, 32], growth_rate=32)
+def DenseNet169(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 32, 32], growth_rate=32, lr=lr)
 
 
-def DenseNet201():
-    return DenseNet(Bottleneck, [6, 12, 48, 32], growth_rate=32)
+def DenseNet201(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 48, 32], growth_rate=32, lr=lr)
 
 
-def DenseNet161():
-    return DenseNet(Bottleneck, [6, 12, 36, 24], growth_rate=48)
+def DenseNet161(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 36, 24], growth_rate=48, lr=lr)
 
 
-def densenet_cifar():
-    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=12)
+def densenet_cifar(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=12, lr=lr)
 
 
 def test():

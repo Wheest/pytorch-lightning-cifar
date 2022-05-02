@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class Bottleneck(nn.Module):
@@ -57,9 +59,9 @@ class Bottleneck(nn.Module):
 
 
 class DPN(pl.LightningModule):
-    def __init__(self, cfg, learning_rate=0.1):
+    def __init__(self, cfg, lr=0.05):
         super(DPN, self).__init__()
-        self.learning_rate = learning_rate
+        self.save_hyperparameters()
         in_planes, out_planes = cfg["in_planes"], cfg["out_planes"]
         num_blocks, dense_depth = cfg["num_blocks"], cfg["dense_depth"]
 
@@ -112,27 +114,60 @@ class DPN(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
-def DPN26():
+def DPN26(lr=0.05):
     cfg = {
         "in_planes": (96, 192, 384, 768),
         "out_planes": (256, 512, 1024, 2048),
         "num_blocks": (2, 2, 2, 2),
         "dense_depth": (16, 32, 24, 128),
     }
-    return DPN(cfg)
+    return DPN(cfg, lr=lr)
 
 
-def DPN92():
+def DPN92(lr=0.05):
     cfg = {
         "in_planes": (96, 192, 384, 768),
         "out_planes": (256, 512, 1024, 2048),
         "num_blocks": (3, 4, 20, 3),
         "dense_depth": (16, 32, 24, 128),
     }
-    return DPN(cfg)
+    return DPN(cfg, lr=lr)
 
 
 def test():

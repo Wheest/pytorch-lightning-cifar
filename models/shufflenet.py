@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class ShuffleBlock(nn.Module):
@@ -64,10 +66,10 @@ class Bottleneck(nn.Module):
 
 
 class ShuffleNetV1(pl.LightningModule):
-    def __init__(self, cfg, learning_rate=0.1):
+    def __init__(self, cfg, lr=0.05):
         super(ShuffleNetV1, self).__init__()
 
-        self.learning_rate = learning_rate
+        self.save_hyperparameters()
 
         out_planes = cfg["out_planes"]
         num_blocks = cfg["num_blocks"]
@@ -114,17 +116,50 @@ class ShuffleNetV1(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
+
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
+
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
 
-def ShuffleNetV1_G2():
+def ShuffleNetV1_G2(lr=0.05):
     cfg = {"out_planes": [200, 400, 800], "num_blocks": [4, 8, 4], "groups": 2}
-    return ShuffleNetV1(cfg)
+    return ShuffleNetV1(cfg, lr=lr)
 
 
-def ShuffleNetV1_G3():
+def ShuffleNetV1_G3(lr=0.05):
     cfg = {"out_planes": [240, 480, 960], "num_blocks": [4, 8, 4], "groups": 3}
-    return ShuffleNetV1(cfg)
+    return ShuffleNetV1(cfg, lr=lr)
 
 
 def test():

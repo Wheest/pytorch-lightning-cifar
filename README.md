@@ -1,21 +1,51 @@
-# Train CIFAR10 with PyTorch
+# PyTorch Lightning CIFAR10
+
+## About this fork
+
+Modified version of the [PyTorch CIFAR project](https://github.com/kuangliu/pytorch-cifar) to exploit the [PyTorch Lightning package](https://www.pytorchlightning.ai/).
+
+In addition:
+- Improvements `main.py` script, allowing you to train one or more models in a single command
+- Default optimizer changed to Adam
+- [`black`](https://github.com/psf/black) formatter applied to all files.
+- Added more consistnet config of VGG and ShuffleNetV2 models
+
+Currently supported models:
+
+- [ ] densenet.py
+- [ ] dla.py
+- [ ] dla_simple.py
+- [ ] dpn.py
+- [ ] efficientnet.py
+- [ ] googlenet.py
+- [ ] lenet.py
+- [x] mobilenet.py
+- [x] mobilenetv2.py
+- [ ] pnasnet.py
+- [ ] preact_resnet.py
+- [ ] regnet.py
+- [ ] resnet.py
+- [ ] resnext.py
+- [ ] senet.py
+- [ ] shufflenet.py
+- [ ] shufflenetv2.py
+- [ ] vgg.py
+
+## Train CIFAR10 with PyTorch
 
 I'm playing with [PyTorch](http://pytorch.org/) on the CIFAR10 dataset.
 
-## Prerequisites
+### Prerequisites
 - Python 3.6+
 - PyTorch 1.0+
 
-## Training
+### Training
 ```
 # Start training with: 
-python main.py
-
-# You can manually resume the training with: 
-python main.py --resume --lr=0.01
+python main.py --model_name [your model, e.g. `mobilenetv2`, or `all` for all models]
 ```
 
-## Accuracy
+### Accuracy
 | Model             | Acc.        |
 | ----------------- | ----------- |
 | [VGG16](https://arxiv.org/abs/1409.1556)              | 92.64%      |

@@ -1,19 +1,62 @@
-'''VGG11/13/16/19 in Pytorch.'''
+"""VGG11/13/16/19 in Pytorch."""
 import torch
 import torch.nn as nn
-
+import pytorch_lightning as pl
 
 cfg = {
-    'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
-    'VGG19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+    "VGG11": [64, "M", 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
+    "VGG13": [64, 64, "M", 128, 128, "M", 256, 256, "M", 512, 512, "M", 512, 512, "M"],
+    "VGG16": [
+        64,
+        64,
+        "M",
+        128,
+        128,
+        "M",
+        256,
+        256,
+        256,
+        "M",
+        512,
+        512,
+        512,
+        "M",
+        512,
+        512,
+        512,
+        "M",
+    ],
+    "VGG19": [
+        64,
+        64,
+        "M",
+        128,
+        128,
+        "M",
+        256,
+        256,
+        256,
+        256,
+        "M",
+        512,
+        512,
+        512,
+        512,
+        "M",
+        512,
+        512,
+        512,
+        512,
+        "M",
+    ],
 }
 
 
-class VGG(nn.Module):
-    def __init__(self, vgg_name):
+class VGG(pl.LightningModule):
+    def __init__(self, vgg_name, learning_rate=0.1):
         super(VGG, self).__init__()
+
+        self.learning_rate = learning_rate
         self.features = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, 10)
 
@@ -27,21 +70,49 @@ class VGG(nn.Module):
         layers = []
         in_channels = 3
         for x in cfg:
-            if x == 'M':
+            if x == "M":
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
-                layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1),
-                           nn.BatchNorm2d(x),
-                           nn.ReLU(inplace=True)]
+                layers += [
+                    nn.Conv2d(in_channels, x, kernel_size=3, padding=1),
+                    nn.BatchNorm2d(x),
+                    nn.ReLU(inplace=True),
+                ]
                 in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
 
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.cross_entropy(y_hat, y)
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
+
+def Vgg11():
+    return VGG("VGG11")
+
+
+def Vgg13():
+    return VGG("VGG13")
+
+
+def Vgg16():
+    return VGG("VGG16")
+
+
+def Vgg19():
+    return VGG("VGG19")
+
 
 def test():
-    net = VGG('VGG11')
-    x = torch.randn(2,3,32,32)
+    net = VGG("VGG11")
+    x = torch.randn(2, 3, 32, 32)
     y = net(x)
     print(y.size())
+
 
 # test()

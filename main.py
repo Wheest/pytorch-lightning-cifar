@@ -110,10 +110,10 @@ def get_model(model_name, lr):
 
 def main(args):
 
-    if "all" in args.model_name:
-        args.model_name = list(MODELS.keys())
+    if "all" in args.model_arch:
+        args.model_arch = list(MODELS.keys())
 
-    pbar = tqdm(args.model_name)
+    pbar = tqdm(args.model_arch)
     for m in pbar:
         pbar.set_description(f"Training model {m}")
         model = get_model(m, args.lr)
@@ -127,7 +127,7 @@ def main(args):
 
         trainer = pl.Trainer(
             gpus=AVAIL_GPUS,
-            max_epochs=1,
+            max_epochs=args.epochs,
             callbacks=[pl.callbacks.LearningRateMonitor(logging_interval="step")],
             logger=logger,
         )
@@ -159,7 +159,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch CIFAR10 Training")
     parser.add_argument(
-        "--model_name",
+        "--model_arch",
         required=True,
         type=str,
         nargs="+",
@@ -167,6 +167,9 @@ if __name__ == "__main__":
         help="Model architecture to use",
     )
     parser.add_argument("--lr", default=0.05, type=float, help="learning rate")
+    parser.add_argument(
+        "--epochs", default=200, type=float, help="Number of epochs to train for"
+    )
     parser.add_argument(
         "--num_workers",
         default=multiprocessing.cpu_count(),

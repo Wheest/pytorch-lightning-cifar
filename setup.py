@@ -1,5 +1,14 @@
 #!/usr/bin/env python
+import pathlib
 from setuptools import setup, find_packages
+
+
+# The directory containing this file
+HERE = pathlib.Path(__file__).parent
+
+# The text of the README file
+README = (HERE / "README.md").read_text()
+
 
 setup(
     name="pytorch_lightning_cifar",
@@ -14,4 +23,6 @@ setup(
         "torchvision >= 0.12.0",
         "lightning-bolts >= 0.5.0",
     ],
+    license="MIT",
+    include_package_data=True,
 )

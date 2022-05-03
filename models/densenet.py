@@ -1,23 +1,28 @@
-'''DenseNet in PyTorch.'''
+"""DenseNet in PyTorch."""
 import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
+from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class Bottleneck(nn.Module):
     def __init__(self, in_planes, growth_rate):
         super(Bottleneck, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv1 = nn.Conv2d(in_planes, 4*growth_rate, kernel_size=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(4*growth_rate)
-        self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_planes, 4 * growth_rate, kernel_size=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(4 * growth_rate)
+        self.conv2 = nn.Conv2d(
+            4 * growth_rate, growth_rate, kernel_size=3, padding=1, bias=False
+        )
 
     def forward(self, x):
         out = self.conv1(F.relu(self.bn1(x)))
         out = self.conv2(F.relu(self.bn2(out)))
-        out = torch.cat([out,x], 1)
+        out = torch.cat([out, x], 1)
         return out
 
 
@@ -33,34 +38,43 @@ class Transition(nn.Module):
         return out
 
 
-class DenseNet(nn.Module):
-    def __init__(self, block, nblocks, growth_rate=12, reduction=0.5, num_classes=10):
+class DenseNet(pl.LightningModule):
+    def __init__(
+        self,
+        block,
+        nblocks,
+        growth_rate=12,
+        reduction=0.5,
+        num_classes=10,
+        lr=0.05,
+    ):
         super(DenseNet, self).__init__()
+        self.save_hyperparameters()
         self.growth_rate = growth_rate
 
-        num_planes = 2*growth_rate
+        num_planes = 2 * growth_rate
         self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, padding=1, bias=False)
 
         self.dense1 = self._make_dense_layers(block, num_planes, nblocks[0])
-        num_planes += nblocks[0]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
+        num_planes += nblocks[0] * growth_rate
+        out_planes = int(math.floor(num_planes * reduction))
         self.trans1 = Transition(num_planes, out_planes)
         num_planes = out_planes
 
         self.dense2 = self._make_dense_layers(block, num_planes, nblocks[1])
-        num_planes += nblocks[1]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
+        num_planes += nblocks[1] * growth_rate
+        out_planes = int(math.floor(num_planes * reduction))
         self.trans2 = Transition(num_planes, out_planes)
         num_planes = out_planes
 
         self.dense3 = self._make_dense_layers(block, num_planes, nblocks[2])
-        num_planes += nblocks[2]*growth_rate
-        out_planes = int(math.floor(num_planes*reduction))
+        num_planes += nblocks[2] * growth_rate
+        out_planes = int(math.floor(num_planes * reduction))
         self.trans3 = Transition(num_planes, out_planes)
         num_planes = out_planes
 
         self.dense4 = self._make_dense_layers(block, num_planes, nblocks[3])
-        num_planes += nblocks[3]*growth_rate
+        num_planes += nblocks[3] * growth_rate
 
         self.bn = nn.BatchNorm2d(num_planes)
         self.linear = nn.Linear(num_planes, num_classes)
@@ -83,25 +97,74 @@ class DenseNet(nn.Module):
         out = self.linear(out)
         return out
 
-def DenseNet121():
-    return DenseNet(Bottleneck, [6,12,24,16], growth_rate=32)
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.cross_entropy(y_hat, y)
+        return loss
 
-def DenseNet169():
-    return DenseNet(Bottleneck, [6,12,32,32], growth_rate=32)
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(
+            self.parameters(),
+            lr=self.hparams.lr,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
+        steps_per_epoch = 45000 // self.trainer.datamodule.batch_size
+        scheduler_dict = {
+            "scheduler": OneCycleLR(
+                optimizer,
+                0.1,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+            ),
+            "interval": "step",
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
 
-def DenseNet201():
-    return DenseNet(Bottleneck, [6,12,48,32], growth_rate=32)
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        logits = self(x)
+        loss = F.nll_loss(logits, y)
+        preds = torch.argmax(logits, dim=1)
+        acc = accuracy(preds, y)
 
-def DenseNet161():
-    return DenseNet(Bottleneck, [6,12,36,24], growth_rate=48)
+        if stage:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log(f"{stage}_acc", acc, prog_bar=True)
 
-def densenet_cifar():
-    return DenseNet(Bottleneck, [6,12,24,16], growth_rate=12)
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
+
+
+def DenseNet121(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=32, lr=lr)
+
+
+def DenseNet169(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 32, 32], growth_rate=32, lr=lr)
+
+
+def DenseNet201(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 48, 32], growth_rate=32, lr=lr)
+
+
+def DenseNet161(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 36, 24], growth_rate=48, lr=lr)
+
+
+def densenet_cifar(lr=0.05):
+    return DenseNet(Bottleneck, [6, 12, 24, 16], growth_rate=12, lr=lr)
+
 
 def test():
     net = densenet_cifar()
-    x = torch.randn(1,3,32,32)
+    x = torch.randn(1, 3, 32, 32)
     y = net(x)
     print(y)
+
 
 # test()

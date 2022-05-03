@@ -1,6 +1,7 @@
 # PyTorch Lightning CIFAR10
 [![GitHub license](https://img.shields.io/github/license/Naereen/StrapDown.js.svg)](https://github.com/Naereen/StrapDown.js/blob/master/LICENSE)
 [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://www.againstmalaria.com/perry-gibson)
+[![PyPi version](https://badgen.net/pypi/v/pip/)](https://pypi.org/project/pytorch-lightning-cifar/)
 
 ## About this fork
 
@@ -13,8 +14,11 @@ In addition:
 - [`black`](https://github.com/psf/black) formatter applied to all files.
 - Added more consistent config of VGG and ShuffleNetV2 models.
 - Added Tensorboard logging, and a JSON file `final_metrics.json` that saves final accuracy.
+- Create an installable Python package, which makes it easier to use as a dependency (but it's not required!).
 
-Library initially developed while at University of Glasgow's [gicLAB](https://twitter.com/gic_lab).
+This fork was developed while at University of Glasgow's [gicLAB](https://twitter.com/gic_lab).
+
+Install the package with `pip install pytorch-lightning-cifar`, or clone this repo.
 
 ## Why is this useful?
 
@@ -41,10 +45,12 @@ PRs especially appreciated for features like:
 
 
 ### Training
+
 ```
 # Start training with:
 python main.py --model_arch [your model, e.g. `mobilenetv2`, `resnet18 resnet50 vgg16`, or `all` for all models]
 ```
+
 
 ### Accuracy
 

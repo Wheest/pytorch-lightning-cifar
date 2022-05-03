@@ -19,8 +19,8 @@ import multiprocessing
 import os
 import argparse
 
-import models
-from utils import progress_bar
+from pytorch_lightning_cifar import models
+
 
 pl.seed_everything(7)
 AVAIL_GPUS = min(1, torch.cuda.device_count())

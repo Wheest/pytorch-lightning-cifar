@@ -68,10 +68,11 @@ Some models were not reported in the original repo, and are represented with a `
 | [SimpleDLA](https://arxiv.org/abs/1707.064)           | 94.89%                                                 | 93.04%       |
 | [DPN26](https://arxiv.org/abs/1707.01629)             | -                                                      | 95.03%       |
 | [DPN92](https://arxiv.org/abs/1707.01629)             | 95.16%                                                 | -            |
-| [EfficientNetB0](https://arxiv.org/abs/1905.11946)    | -                                                      | -            |
+| [EfficientNetB0](https://arxiv.org/abs/1905.11946)    | -                                                      | 90.38%       |
+| [GoogLeNet](https://arxiv.org/abs/1409.4842)          | -                                                      | -            |
 | [LeNet](yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf) | -                                                      | -            |
-| [MobileNetV1](https://arxiv.org/abs/1704.04861)       | -                                                      | -            |
-| [MobileNetV2](https://arxiv.org/abs/1801.04381)       | 94.43%                                                 | -            |
+| [MobileNetV1](https://arxiv.org/abs/1704.04861)       | -                                                      | 91.30%       |
+| [MobileNetV2](https://arxiv.org/abs/1801.04381)       | 94.43%                                                 | 93.17%       |
 | [PNASNetA](https://arxiv.org/abs/1712.00559v3)        | -                                                      | -            |
 | [PNASNetB](https://arxiv.org/abs/1712.00559v3)        | -                                                      | -            |
 | [PreActResNet18](https://arxiv.org/abs/1603.05027)    | 95.11%                                                 | -            |
@@ -88,7 +89,8 @@ Some models were not reported in the original repo, and are represented with a `
 | [ResNet101](https://arxiv.org/abs/1512.03385)         | 93.75%                                                 | -            |
 | [ResNet152](https://arxiv.org/abs/1512.03385)         | -                                                      | -            |
 | [ResNeXt29(32x4d)](https://arxiv.org/abs/1611.05431)  | 94.73%                                                 | -            |
-| [ResNeXt29(2x64d)](https://arxiv.org/abs/1611.05431)  | 94.82%                                                 | -            |
+| [ResNeXt29(2x64d)](https://arxiv.org/abs/1611.05431)  | 94.82%                                                 | 95.18%       |
+| [ResNeXt29(4x64d)](https://arxiv.org/abs/1611.05431)  | -                                                      | 95.67%       |
 | [VGG16](https://arxiv.org/abs/1409.1556)              | 92.64%                                                 | -            |
 
 

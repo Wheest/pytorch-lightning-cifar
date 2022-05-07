@@ -1,7 +1,8 @@
 # PyTorch Lightning CIFAR10
 [![GitHub license](https://img.shields.io/github/license/Naereen/StrapDown.js.svg)](https://github.com/Naereen/StrapDown.js/blob/master/LICENSE)
 [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://www.againstmalaria.com/perry-gibson)
-[![PyPi version](https://badgen.net/pypi/v/pip/)](https://pypi.org/project/pytorch-lightning-cifar/)
+![PyPI](https://img.shields.io/pypi/v/PACKAGE?label=pypi%20pytorch-lightning-cifar)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pytorch-lightning-cifar)
 
 ## About this fork
 

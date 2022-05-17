@@ -19,9 +19,10 @@ setup(
     description="Common CNN models defined for PyTorch Lightning ",
     packages=find_packages(),
     install_requires=[
+        "torch >= 1.7.1",
         "pytorch_lightning",
         "torchvision",
-        "lightning-bolts",
+        "lightning-bolts >= 0.5.0",
     ],
     license="MIT",
     include_package_data=True,

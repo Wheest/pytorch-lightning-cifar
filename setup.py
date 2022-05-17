@@ -12,7 +12,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="pytorch_lightning_cifar",
-    version="0.1.3",
+    version="0.1.4",
     url="https://github.com/Wheest/pytorch-lightning-cifar.git",
     author="Perry Gibson",
     author_email="perry@gibsonic.org",

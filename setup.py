@@ -22,7 +22,7 @@ setup(
         "torch >= 1.7.1",
         "pytorch_lightning",
         "torchvision",
-        "lightning-bolts >= 0.5.0",
+        "lightning-bolts",
     ],
     license="MIT",
     include_package_data=True,
